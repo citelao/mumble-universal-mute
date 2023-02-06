@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "MumbleMutePlugin"
+name = "mumble_mute_plugin"
 version = "0.1.0"
