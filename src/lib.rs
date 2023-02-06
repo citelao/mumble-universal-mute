@@ -1,21 +1,50 @@
-use mumble_sys::{traits::MumblePlugin, types::Mumble_ErrorCode};
+use mumble_sys::{traits::{MumblePlugin, MumblePluginDescriptor}};
 
-// fn main() {
-//     println!("Hello, world!");
-// }
+// TODO remove
+use mumble_sys::types as m;
 
-struct mute_plugin {}
+struct MutePlugin {
+    api: mumble_sys::MumbleAPI,
+}
 
-impl MumblePlugin for mute_plugin {
-    fn init(&mut self) -> Mumble_ErrorCode {
-        println!("Init");
-        return Mumble_ErrorCode::EC_OK;
+// https://github.com/Dessix/rust-mumble-rpc/blob/master/src/lib.rs
+impl MumblePlugin for MutePlugin {
+    fn on_channel_entered(
+            &mut self,
+            conn: m::ConnectionT,
+            _user: m::UserIdT,
+            _previous: Option<m::ChannelIdT>,
+            _current: Option<m::ChannelIdT>,
+        ) {
+        let api = &mut self.api;
+        if !api.is_connection_synchronized(conn) { return; }
+        println!("Joined a channel!")
     }
-    fn shutdown(&mut self) {
+
+    fn shutdown(&self) {
         println!("Shutdown");
     }
+}
 
-    fn set_api(&mut self, api: crate::MumbleAPI) {
-        // TODO
+impl MumblePluginDescriptor for MutePlugin {
+    fn name() -> &'static str {
+        "Universal Mute for Mumble"
+    }
+
+    fn author() -> &'static str {
+        "Ben Stolovitz (citelao)"
+    }
+
+    fn description() -> &'static str {
+        "Enable universal mute for Mumble"
+    }
+
+    fn init(id: mumble_sys::types::PluginId, api: mumble_sys::types::MumbleAPI) -> Result<Self, mumble_sys::types::ErrorT>
+    where
+        Self: Sized {
+        println!("It's alive!");
+        Ok(MutePlugin { api: mumble_sys::MumbleAPI::new(id, api) })
     }
 }
+
+mumble_sys::register_mumble_plugin!(MutePlugin);
