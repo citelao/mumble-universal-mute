@@ -39,6 +39,17 @@ impl MumblePluginDescriptor for MutePlugin {
         "Enable universal mute for Mumble"
     }
 
+    fn version() -> m::Version {
+        println!("Version requested");
+        m::Version { major: 0, minor: 0, patch: 1 }
+    }
+
+    fn api_version() -> m::Version {
+        // Implement this manually to avoid a linker error.
+        println!("APIVersion requested");
+        m::Version { major: 1, minor: 0, patch: 0 }
+    }
+
     fn init(id: mumble_sys::types::PluginId, api: mumble_sys::types::MumbleAPI) -> Result<Self, mumble_sys::types::ErrorT>
     where
         Self: Sized {
