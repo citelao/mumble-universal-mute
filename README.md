@@ -22,10 +22,12 @@ New-Item -ItemType SymbolicLink mumble_sources -Value C:\Users\Path\To\mumble\
 Inner loop:
 
 ```powershell
-rust build
+cargo build
+cp .\target\debug\mumble_mute_plugin.dll $env:APPDATA\Mumble\Plugins
 ```
 
 ### Tips
 
 * Make sure you have 64-bit Mumble!
-* Enable Developer console (or use SysInternals DebugView)
+* Enable Developer console (or use SysInternals DebugView) for debugging plugin
+  load issues.
