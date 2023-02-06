@@ -7,6 +7,12 @@ Written in Rust
 Setup:
 
 ```powershell
+# Install LLVM/Clang
+winget install llvm
+
+# Patch Rust bindings plugin
+# TBD
+
 # Download the Mumble source code & symlink to it.
 # The Rust bindings are generated fresh from the plugins/ dir.
 # https://github.com/mumble-voip/mumble

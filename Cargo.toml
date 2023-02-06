@@ -10,3 +10,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 mumble-sys = "0.1.0"
+
+[patch.crates-io]
+mumble-sys = { path = "../rust-mumble-sys" }
