@@ -15,11 +15,26 @@ impl MumblePlugin for MutePlugin {
     fn on_server_synchronized(&mut self, _conn: m::ConnectionT) {
         let api = &mut self.api;
         api.log("Server connected").unwrap();
+
+        let call = self.coordinator.RequestNewOutgoingCall(
+            h!("context_link_todo"),
+            h!("TODO Channel"),
+            h!("Mumble"), 
+            VoipPhoneCallMedia::Audio)
+            .expect("Call should be createable");
+        call.NotifyCallActive()
+            .expect("Call should be startable");
+        self.call = Some(call);
     }
 
     fn on_server_disconnected(&mut self, _conn: m::ConnectionT) {
         let api = &mut self.api;
         api.log("Server disconnected").unwrap();
+
+        if let Some(call) = self.call.as_ref() {
+            call.NotifyCallEnded().expect("We should be able to end the call");
+            self.call = None;
+        }
     }
 
     fn on_channel_entered(
@@ -40,7 +55,7 @@ impl MumblePlugin for MutePlugin {
             return;
         }
 
-        let channel_name = current
+        let _channel_name = current
             .map(|c| api.get_channel_name(conn, c).unwrap())
             .unwrap_or(String::from("<None>"));
         // let user_name = api
@@ -53,17 +68,17 @@ impl MumblePlugin for MutePlugin {
         //     .get_server_hash(conn)
         //     .unwrap_or(String::from("<Unavailable>"));
 
-        println!("Joined a channel!");
-        api.log("HI").unwrap();
-        let call = self.coordinator.RequestNewOutgoingCall(
-            h!("context_link_todo"),
-            &channel_name.into(),
-            h!("Mumble"), 
-            VoipPhoneCallMedia::Audio)
-            .expect("Call should be createable");
-        call.NotifyCallActive()
-            .expect("Call should be startable");
-        self.call = Some(call);
+        // println!("Joined a channel!");
+        // api.log("HI").unwrap();
+        // let call = self.coordinator.RequestNewOutgoingCall(
+        //     h!("context_link_todo"),
+        //     &channel_name.into(),
+        //     h!("Mumble"), 
+        //     VoipPhoneCallMedia::Audio)
+        //     .expect("Call should be createable");
+        // call.NotifyCallActive()
+        //     .expect("Call should be startable");
+        // self.call = Some(call);
     }
 
     fn on_channel_exited(
