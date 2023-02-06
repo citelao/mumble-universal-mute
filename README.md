@@ -24,3 +24,8 @@ Inner loop:
 ```powershell
 rust build
 ```
+
+### Tips
+
+* Make sure you have 64-bit Mumble!
+* Enable Developer console (or use SysInternals DebugView)
