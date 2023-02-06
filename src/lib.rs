@@ -22,6 +22,14 @@ impl MumblePlugin for MutePlugin {
             h!("Mumble"), 
             VoipPhoneCallMedia::Audio)
             .expect("Call should be createable");
+
+        let is_muted = api.get_local_user_muted().unwrap();
+        if is_muted {
+            self.coordinator.NotifyMuted().unwrap();
+        } else {
+            self.coordinator.NotifyUnmuted().unwrap();
+        }
+        
         call.NotifyCallActive()
             .expect("Call should be startable");
         self.call = Some(call);
