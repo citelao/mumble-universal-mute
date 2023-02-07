@@ -5,5 +5,5 @@
     <plugin os="windows" arch="x64">mumble_mute_plugin.dll</plugin>
   </assets>
   <name>Universal Mute for Mumble</name>
-  <version>1.0.0</version>
+  <version>0.0.1</version>
 </bundle>
