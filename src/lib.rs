@@ -1,7 +1,16 @@
 use std::sync::{Arc, Mutex};
 
-use mumble_sys::{traits::{MumblePlugin, MumblePluginDescriptor}, types::ErrorT};
-use windows::{ApplicationModel::Calls::{VoipCallCoordinator, VoipPhoneCallMedia, VoipPhoneCall, MuteChangeEventArgs}, h, Foundation::TypedEventHandler};
+use mumble_sys::{
+    traits::{MumblePlugin, MumblePluginDescriptor},
+    types::ErrorT,
+};
+use windows::{
+    h,
+    ApplicationModel::Calls::{
+        MuteChangeEventArgs, VoipCallCoordinator, VoipPhoneCall, VoipPhoneCallMedia,
+    },
+    Foundation::TypedEventHandler,
+};
 
 // TODO remove; there's a bug in the mumble_sys macro impl.
 use mumble_sys::types as m;
@@ -33,11 +42,14 @@ impl MumblePlugin for MutePlugin {
         // let api = &mut self.state.lock().unwrap().api;
         debug_log(&mut locked_state.api, "Server connected").unwrap();
 
-        let call = self.coordinator.RequestNewOutgoingCall(
-            h!("context_link_todo"),
-            h!("TODO Channel"),
-            h!("Mumble"),
-            VoipPhoneCallMedia::Audio)
+        let call = self
+            .coordinator
+            .RequestNewOutgoingCall(
+                h!("context_link_todo"),
+                h!("TODO Channel"),
+                h!("Mumble"),
+                VoipPhoneCallMedia::Audio,
+            )
             .expect("Call should be createable");
 
         let is_muted = locked_state.api.get_local_user_muted().unwrap();
@@ -47,8 +59,7 @@ impl MumblePlugin for MutePlugin {
             self.coordinator.NotifyUnmuted().unwrap();
         }
 
-        call.NotifyCallActive()
-            .expect("Call should be startable");
+        call.NotifyCallActive().expect("Call should be startable");
         self.call = Some(call);
         locked_state.is_in_call = true;
     }
@@ -60,7 +71,8 @@ impl MumblePlugin for MutePlugin {
         locked_state.is_in_call = false;
 
         if let Some(call) = self.call.as_ref() {
-            call.NotifyCallEnded().expect("We should be able to end the call");
+            call.NotifyCallEnded()
+                .expect("We should be able to end the call");
             self.call = None;
         }
     }
@@ -85,22 +97,35 @@ impl MumblePluginDescriptor for MutePlugin {
 
     fn version() -> m::Version {
         println!("Version requested");
-        m::Version { major: 0, minor: 0, patch: 1 }
+        m::Version {
+            major: 0,
+            minor: 0,
+            patch: 1,
+        }
     }
 
     fn api_version() -> m::Version {
         // Implement this manually to avoid a linker error.
         println!("APIVersion requested");
-        m::Version { major: 1, minor: 0, patch: 0 }
+        m::Version {
+            major: 1,
+            minor: 0,
+            patch: 0,
+        }
     }
 
-    fn init(id: mumble_sys::types::PluginId, api: mumble_sys::types::MumbleAPI) -> Result<Self, mumble_sys::types::ErrorT>
+    fn init(
+        id: mumble_sys::types::PluginId,
+        api: mumble_sys::types::MumbleAPI,
+    ) -> Result<Self, mumble_sys::types::ErrorT>
     where
-        Self: Sized {
+        Self: Sized,
+    {
         println!("It's alive!");
 
         let full_api = mumble_sys::MumbleAPI::new(id, api);
-        let coordinator = VoipCallCoordinator::GetDefault().expect("Could not get WinRT call coordinator");
+        let coordinator =
+            VoipCallCoordinator::GetDefault().expect("Could not get WinRT call coordinator");
         let state = Arc::new(Mutex::new(GlobalState {
             api: full_api,
             coordinator: coordinator.clone(),
@@ -115,24 +140,36 @@ impl MumblePluginDescriptor for MutePlugin {
 
         {
             let state_copy = state.clone();
-            coordinator.MuteStateChanged(&TypedEventHandler::new(move |_, args: &Option<MuteChangeEventArgs>| {
-                if let Some(a) = args {
-                    let locked_state = &mut state_copy.lock().unwrap();
-                    let should_mute = a.Muted().unwrap();
-                    debug_log(&mut locked_state.api, format!("Mute request - should mute? {}", should_mute).as_str()).unwrap();
-                    if locked_state.is_in_call {
-                        locked_state.api.request_local_user_mute(should_mute).unwrap();
-                        if should_mute {
-                            locked_state.coordinator.NotifyMuted().unwrap();
-                        } else {
-                            locked_state.coordinator.NotifyUnmuted().unwrap();
+            coordinator
+                .MuteStateChanged(&TypedEventHandler::new(
+                    move |_, args: &Option<MuteChangeEventArgs>| {
+                        if let Some(a) = args {
+                            let locked_state = &mut state_copy.lock().unwrap();
+                            let should_mute = a.Muted().unwrap();
+                            debug_log(
+                                &mut locked_state.api,
+                                format!("Mute request - should mute? {}", should_mute).as_str(),
+                            )
+                            .unwrap();
+                            if locked_state.is_in_call {
+                                locked_state
+                                    .api
+                                    .request_local_user_mute(should_mute)
+                                    .unwrap();
+                                if should_mute {
+                                    locked_state.coordinator.NotifyMuted().unwrap();
+                                } else {
+                                    locked_state.coordinator.NotifyUnmuted().unwrap();
+                                }
+                            } else {
+                                debug_log(&mut locked_state.api, "(ignoring since not in call)")
+                                    .unwrap();
+                            }
                         }
-                    } else {
-                        debug_log(&mut locked_state.api, "(ignoring since not in call)").unwrap();
-                    }
-                }
-                Ok(())
-            })).unwrap();
+                        Ok(())
+                    },
+                ))
+                .unwrap();
         }
 
         Ok(MutePlugin {
