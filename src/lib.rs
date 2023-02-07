@@ -1,14 +1,10 @@
 use std::sync::{Arc, Mutex};
 
-use mumble_sys::{traits::{MumblePlugin, MumblePluginDescriptor}};
-
-// TODO remove
-use mumble_sys::types as m;
+use mumble_sys::{traits::{MumblePlugin, MumblePluginDescriptor}, types::ErrorT};
 use windows::{ApplicationModel::Calls::{VoipCallCoordinator, VoipPhoneCallMedia, VoipPhoneCall, MuteChangeEventArgs}, h, Foundation::TypedEventHandler};
 
-// struct ScopedTypedEventHandler<TSender: windows::core::RuntimeType + 'static, TResult: windows::core::RuntimeType + 'static> {
-//     handler: TypedEventHandler<TSender, TResult>
-// }
+// TODO remove; there's a bug in the mumble_sys macro impl.
+use mumble_sys::types as m;
 
 struct GlobalState {
     api: mumble_sys::MumbleAPI,
@@ -22,12 +18,20 @@ struct MutePlugin {
     call: Option<VoipPhoneCall>,
 }
 
+fn debug_log(api: &mut mumble_sys::MumbleAPI, message: &str) -> Result<(), ErrorT> {
+    const DEBUG: bool = false;
+    if DEBUG {
+        api.log(message)?;
+    }
+    Ok(())
+}
+
 // https://github.com/Dessix/rust-mumble-rpc/blob/master/src/lib.rs
 impl MumblePlugin for MutePlugin {
     fn on_server_synchronized(&mut self, _conn: m::ConnectionT) {
         let locked_state = &mut self.state.lock().unwrap();
         // let api = &mut self.state.lock().unwrap().api;
-        locked_state.api.log("Server connected").unwrap();
+        debug_log(&mut locked_state.api, "Server connected").unwrap();
 
         let call = self.coordinator.RequestNewOutgoingCall(
             h!("context_link_todo"),
@@ -52,7 +56,7 @@ impl MumblePlugin for MutePlugin {
     fn on_server_disconnected(&mut self, _conn: m::ConnectionT) {
         let locked_state = &mut self.state.lock().unwrap();
         // let api = &mut self.state.lock().unwrap().api;
-        locked_state.api.log("Server disconnected").unwrap();
+        debug_log(&mut locked_state.api, "Server disconnected").unwrap();
         locked_state.is_in_call = false;
 
         if let Some(call) = self.call.as_ref() {
@@ -179,11 +183,9 @@ impl MumblePluginDescriptor for MutePlugin {
         }));
 
         {
+            // Useful for debugging.
             let state_ref = &mut state.lock().unwrap();
-            // let mut full_api_ref = full_api.lock().unwrap();
-            
-            // TODO: remove this debug message.
-            state_ref.api.log("Hello there!").unwrap();
+            debug_log(&mut state_ref.api, "Hello there!");
         }
 
         {
@@ -192,7 +194,7 @@ impl MumblePluginDescriptor for MutePlugin {
                 if let Some(a) = args {
                     let locked_state = &mut state_copy.lock().unwrap();
                     let should_mute = a.Muted().unwrap();
-                    locked_state.api.log(format!("Mute request - should mute? {}", should_mute).as_str()).unwrap();
+                    debug_log(&mut locked_state.api, format!("Mute request - should mute? {}", should_mute).as_str()).unwrap();
                     if locked_state.is_in_call {
                         locked_state.api.request_local_user_mute(should_mute).unwrap();
                         if should_mute {
@@ -201,7 +203,7 @@ impl MumblePluginDescriptor for MutePlugin {
                             locked_state.coordinator.NotifyUnmuted().unwrap();
                         }
                     } else {
-                        locked_state.api.log("(ignoring since not in call)").unwrap();
+                        debug_log(&mut locked_state.api, "(ignoring since not in call)").unwrap();
                     }
                 }
                 Ok(())
