@@ -1,6 +1,8 @@
 # Mumble mute plugin
 
-Written in Rust
+Enable the universal mute button (and the `Win+Alt+K` shortcut) for Mumble.
+
+![The universal mute button](doc/mute_button.png)
 
 ## Develop
 
