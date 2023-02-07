@@ -13,6 +13,7 @@ use windows::{ApplicationModel::Calls::{VoipCallCoordinator, VoipPhoneCallMedia,
 struct GlobalState {
     api: mumble_sys::MumbleAPI,
     coordinator: VoipCallCoordinator,
+    is_in_call: bool,
 }
 
 struct MutePlugin {
@@ -24,8 +25,9 @@ struct MutePlugin {
 // https://github.com/Dessix/rust-mumble-rpc/blob/master/src/lib.rs
 impl MumblePlugin for MutePlugin {
     fn on_server_synchronized(&mut self, _conn: m::ConnectionT) {
-        let api = &mut self.state.lock().unwrap().api;
-        api.log("Server connected").unwrap();
+        let locked_state = &mut self.state.lock().unwrap();
+        // let api = &mut self.state.lock().unwrap().api;
+        locked_state.api.log("Server connected").unwrap();
 
         let call = self.coordinator.RequestNewOutgoingCall(
             h!("context_link_todo"),
@@ -34,7 +36,7 @@ impl MumblePlugin for MutePlugin {
             VoipPhoneCallMedia::Audio)
             .expect("Call should be createable");
 
-        let is_muted = api.get_local_user_muted().unwrap();
+        let is_muted = locked_state.api.get_local_user_muted().unwrap();
         if is_muted {
             self.coordinator.NotifyMuted().unwrap();
         } else {
@@ -44,11 +46,14 @@ impl MumblePlugin for MutePlugin {
         call.NotifyCallActive()
             .expect("Call should be startable");
         self.call = Some(call);
+        locked_state.is_in_call = true;
     }
 
     fn on_server_disconnected(&mut self, _conn: m::ConnectionT) {
-        let api = &mut self.state.lock().unwrap().api;
-        api.log("Server disconnected").unwrap();
+        let locked_state = &mut self.state.lock().unwrap();
+        // let api = &mut self.state.lock().unwrap().api;
+        locked_state.api.log("Server disconnected").unwrap();
+        locked_state.is_in_call = false;
 
         if let Some(call) = self.call.as_ref() {
             call.NotifyCallEnded().expect("We should be able to end the call");
@@ -170,6 +175,7 @@ impl MumblePluginDescriptor for MutePlugin {
         let state = Arc::new(Mutex::new(GlobalState {
             api: full_api,
             coordinator: coordinator.clone(),
+            is_in_call: false,
         }));
 
         {
@@ -184,10 +190,14 @@ impl MumblePluginDescriptor for MutePlugin {
             let state_copy = state.clone();
             coordinator.MuteStateChanged(&TypedEventHandler::new(move |_, args: &Option<MuteChangeEventArgs>| {
                 if let Some(a) = args {
-                    let api_ref = &mut state_copy.lock().unwrap().api;
-                    let should_mute = !a.Muted().unwrap();
-                    api_ref.log(format!("Mute request - should mute? {}", should_mute).as_str()).unwrap();
-                    // api_ref.request_local_user_mute(should_mute).unwrap();
+                    let locked_state = &mut state_copy.lock().unwrap();
+                    let should_mute = a.Muted().unwrap();
+                    locked_state.api.log(format!("Mute request - should mute? {}", should_mute).as_str()).unwrap();
+                    if locked_state.is_in_call {
+                        locked_state.api.request_local_user_mute(should_mute).unwrap();
+                    } else {
+                        locked_state.api.log("(ignoring since not in call)").unwrap();
+                    }
                 }
                 Ok(())
             })).unwrap();
