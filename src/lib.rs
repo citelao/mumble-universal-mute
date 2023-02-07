@@ -195,6 +195,11 @@ impl MumblePluginDescriptor for MutePlugin {
                     locked_state.api.log(format!("Mute request - should mute? {}", should_mute).as_str()).unwrap();
                     if locked_state.is_in_call {
                         locked_state.api.request_local_user_mute(should_mute).unwrap();
+                        if should_mute {
+                            locked_state.coordinator.NotifyMuted().unwrap();
+                        } else {
+                            locked_state.coordinator.NotifyUnmuted().unwrap();
+                        }
                     } else {
                         locked_state.api.log("(ignoring since not in call)").unwrap();
                     }
