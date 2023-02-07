@@ -172,20 +172,25 @@ impl MumblePluginDescriptor for MutePlugin {
             coordinator: coordinator.clone(),
         }));
 
-        // let mut full_api_ref = full_api.lock().unwrap();
-        
-        // TODO: remove this debug message.
-        // full_api_ref.log("Hello there!").unwrap();
+        {
+            let state_ref = &mut state.lock().unwrap();
+            // let mut full_api_ref = full_api.lock().unwrap();
+            
+            // TODO: remove this debug message.
+            state_ref.api.log("Hello there!").unwrap();
+        }
 
-        let state_copy = state.clone();
-        coordinator.MuteStateChanged(&TypedEventHandler::new(move |_, args: &Option<MuteChangeEventArgs>| {
-            if let Some(a) = args {
-                let mut api_ref = &mut state_copy.lock().unwrap().api;
-                api_ref.log("Mute request").unwrap();
-                api_ref.request_local_user_mute(a.Muted().unwrap()).unwrap();
-            }
-            Ok(())
-        })).unwrap();
+        {
+            let _state_copy = state.clone();
+            coordinator.MuteStateChanged(&TypedEventHandler::new(move |_, args: &Option<MuteChangeEventArgs>| {
+                // if let Some(a) = args {
+                //     let api_ref = &mut state_copy.lock().unwrap().api;
+                //     api_ref.log("Mute request").unwrap();
+                //     api_ref.request_local_user_mute(a.Muted().unwrap()).unwrap();
+                // }
+                Ok(())
+            })).unwrap();
+        }
 
         Ok(MutePlugin {
             state: state,
