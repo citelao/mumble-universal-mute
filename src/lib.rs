@@ -181,13 +181,13 @@ impl MumblePluginDescriptor for MutePlugin {
         }
 
         {
-            let _state_copy = state.clone();
+            let state_copy = state.clone();
             coordinator.MuteStateChanged(&TypedEventHandler::new(move |_, args: &Option<MuteChangeEventArgs>| {
-                // if let Some(a) = args {
-                //     let api_ref = &mut state_copy.lock().unwrap().api;
-                //     api_ref.log("Mute request").unwrap();
-                //     api_ref.request_local_user_mute(a.Muted().unwrap()).unwrap();
-                // }
+                if let Some(a) = args {
+                    let api_ref = &mut state_copy.lock().unwrap().api;
+                    api_ref.log("Mute request").unwrap();
+                    // api_ref.request_local_user_mute(a.Muted().unwrap()).unwrap();
+                }
                 Ok(())
             })).unwrap();
         }
