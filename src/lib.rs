@@ -17,29 +17,28 @@ struct GlobalState {
 
 struct MutePlugin {
     state: Arc<Mutex<GlobalState>>,
+    coordinator: VoipCallCoordinator,
     call: Option<VoipPhoneCall>,
 }
 
 // https://github.com/Dessix/rust-mumble-rpc/blob/master/src/lib.rs
 impl MumblePlugin for MutePlugin {
     fn on_server_synchronized(&mut self, _conn: m::ConnectionT) {
-        let locked_state = &mut self.state.lock().unwrap();
-        // let api = &mut locked_state.api;
-        // let coordinator = &locked_state.coordinator;
-        locked_state.api.log("Server connected").unwrap();
+        let api = &mut self.state.lock().unwrap().api;
+        api.log("Server connected").unwrap();
 
-        let call = locked_state.coordinator.RequestNewOutgoingCall(
+        let call = self.coordinator.RequestNewOutgoingCall(
             h!("context_link_todo"),
             h!("TODO Channel"),
             h!("Mumble"), 
             VoipPhoneCallMedia::Audio)
             .expect("Call should be createable");
 
-        let is_muted = locked_state.api.get_local_user_muted().unwrap();
+        let is_muted = api.get_local_user_muted().unwrap();
         if is_muted {
-            locked_state.coordinator.NotifyMuted().unwrap();
+            self.coordinator.NotifyMuted().unwrap();
         } else {
-            locked_state.coordinator.NotifyUnmuted().unwrap();
+            self.coordinator.NotifyUnmuted().unwrap();
         }
 
         call.NotifyCallActive()
@@ -170,32 +169,27 @@ impl MumblePluginDescriptor for MutePlugin {
         let coordinator = VoipCallCoordinator::GetDefault().expect("Could not get WinRT call coordinator");
         let state = Arc::new(Mutex::new(GlobalState {
             api: full_api,
-            coordinator: coordinator,
+            coordinator: coordinator.clone(),
         }));
 
-        {
-            let local_state = state.clone();
-            let locked_state = &mut local_state.lock().unwrap();
-            let coordinator_ref = &locked_state.coordinator;
-            // let api_ref = &mut locked_state.api;
-            
-            // TODO: remove this debug message.
-            // api_ref.log("Hello there!").unwrap();
-    
-            let state_copy = state.clone();
-            coordinator_ref.MuteStateChanged(&TypedEventHandler::new(move |_, args: &Option<MuteChangeEventArgs>| {
-                if let Some(a) = args {
-                    let api_ref = &mut state_copy.lock().unwrap().api;
-                    let should_mute = a.Muted().unwrap();
-                    api_ref.log(format!("Mute request: should mute {}", should_mute).as_str()).unwrap();
-                    api_ref.request_local_user_mute(should_mute).unwrap();
-                }
-                Ok(())
-            })).unwrap();
-        }
+        // let mut full_api_ref = full_api.lock().unwrap();
+        
+        // TODO: remove this debug message.
+        // full_api_ref.log("Hello there!").unwrap();
+
+        let state_copy = state.clone();
+        coordinator.MuteStateChanged(&TypedEventHandler::new(move |_, args: &Option<MuteChangeEventArgs>| {
+            if let Some(a) = args {
+                let mut api_ref = &mut state_copy.lock().unwrap().api;
+                api_ref.log("Mute request").unwrap();
+                api_ref.request_local_user_mute(a.Muted().unwrap()).unwrap();
+            }
+            Ok(())
+        })).unwrap();
 
         Ok(MutePlugin {
             state: state,
+            coordinator: coordinator,
             call: None,
         })
     }
