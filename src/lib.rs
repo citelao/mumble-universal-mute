@@ -1,42 +1,54 @@
+use std::sync::{Arc, Mutex};
+
 use mumble_sys::{traits::{MumblePlugin, MumblePluginDescriptor}};
 
 // TODO remove
 use mumble_sys::types as m;
-use windows::{ApplicationModel::Calls::{VoipCallCoordinator, VoipPhoneCallMedia, VoipPhoneCall}, h};
+use windows::{ApplicationModel::Calls::{VoipCallCoordinator, VoipPhoneCallMedia, VoipPhoneCall, MuteChangeEventArgs}, h, Foundation::TypedEventHandler};
 
-struct MutePlugin {
+// struct ScopedTypedEventHandler<TSender: windows::core::RuntimeType + 'static, TResult: windows::core::RuntimeType + 'static> {
+//     handler: TypedEventHandler<TSender, TResult>
+// }
+
+struct GlobalState {
     api: mumble_sys::MumbleAPI,
     coordinator: VoipCallCoordinator,
+}
+
+struct MutePlugin {
+    state: Arc<Mutex<GlobalState>>,
     call: Option<VoipPhoneCall>,
 }
 
 // https://github.com/Dessix/rust-mumble-rpc/blob/master/src/lib.rs
 impl MumblePlugin for MutePlugin {
     fn on_server_synchronized(&mut self, _conn: m::ConnectionT) {
-        let api = &mut self.api;
-        api.log("Server connected").unwrap();
+        let locked_state = &mut self.state.lock().unwrap();
+        // let api = &mut locked_state.api;
+        // let coordinator = &locked_state.coordinator;
+        locked_state.api.log("Server connected").unwrap();
 
-        let call = self.coordinator.RequestNewOutgoingCall(
+        let call = locked_state.coordinator.RequestNewOutgoingCall(
             h!("context_link_todo"),
             h!("TODO Channel"),
             h!("Mumble"), 
             VoipPhoneCallMedia::Audio)
             .expect("Call should be createable");
 
-        let is_muted = api.get_local_user_muted().unwrap();
+        let is_muted = locked_state.api.get_local_user_muted().unwrap();
         if is_muted {
-            self.coordinator.NotifyMuted().unwrap();
+            locked_state.coordinator.NotifyMuted().unwrap();
         } else {
-            self.coordinator.NotifyUnmuted().unwrap();
+            locked_state.coordinator.NotifyUnmuted().unwrap();
         }
-        
+
         call.NotifyCallActive()
             .expect("Call should be startable");
         self.call = Some(call);
     }
 
     fn on_server_disconnected(&mut self, _conn: m::ConnectionT) {
-        let api = &mut self.api;
+        let api = &mut self.state.lock().unwrap().api;
         api.log("Server disconnected").unwrap();
 
         if let Some(call) = self.call.as_ref() {
@@ -45,6 +57,11 @@ impl MumblePlugin for MutePlugin {
         }
     }
 
+    // fn on_channel_renamed(&mut self, conn: m::ConnectionT, channel: m::ChannelIdT) {
+    //     let api = &mut self.state.lock().unwrap().api;
+    //     api.log("Channel renamed").unwrap();
+    // }
+
     fn on_channel_entered(
             &mut self,
             conn: m::ConnectionT,
@@ -52,7 +69,7 @@ impl MumblePlugin for MutePlugin {
             _previous: Option<m::ChannelIdT>,
             current: Option<m::ChannelIdT>,
         ) {
-        let api = &mut self.api;
+        let api = &mut self.state.lock().unwrap().api;
         if !api.is_connection_synchronized(conn) { return; }
 
         api.log("HI2 besto besto besto").unwrap();
@@ -66,6 +83,11 @@ impl MumblePlugin for MutePlugin {
         let _channel_name = current
             .map(|c| api.get_channel_name(conn, c).unwrap())
             .unwrap_or(String::from("<None>"));
+    
+        // if let Some(call) = self.call {
+        //     // call.SetContactName("value");
+        // }
+
         // let user_name = api
         //     .get_user_name(conn, user)
         //     .unwrap_or(String::from("<Unavailable>"));
@@ -95,7 +117,7 @@ impl MumblePlugin for MutePlugin {
             user: m::UserIdT,
             _channel: Option<m::ChannelIdT>,
         ) {
-        let api = &mut self.api;
+        let api = &mut self.state.lock().unwrap().api;
         if !api.is_connection_synchronized(conn) { return; }
 
         api.log("Channel exited").unwrap();
@@ -144,18 +166,36 @@ impl MumblePluginDescriptor for MutePlugin {
         Self: Sized {
         println!("It's alive!");
 
-        let mut full_api = mumble_sys::MumbleAPI::new(id, api);
-        
-        // TODO: remove this debug message.
-        full_api.log("Hello there!").unwrap();
-        
+        let full_api = mumble_sys::MumbleAPI::new(id, api);
         let coordinator = VoipCallCoordinator::GetDefault().expect("Could not get WinRT call coordinator");
-        // TODO: register MuteStateChanged to handle win-alt-k
-        // coordinator.MuteStateChanged()
-
-        Ok(MutePlugin {
+        let state = Arc::new(Mutex::new(GlobalState {
             api: full_api,
             coordinator: coordinator,
+        }));
+
+        {
+            let local_state = state.clone();
+            let locked_state = &mut local_state.lock().unwrap();
+            let coordinator_ref = &locked_state.coordinator;
+            // let api_ref = &mut locked_state.api;
+            
+            // TODO: remove this debug message.
+            // api_ref.log("Hello there!").unwrap();
+    
+            let state_copy = state.clone();
+            coordinator_ref.MuteStateChanged(&TypedEventHandler::new(move |_, args: &Option<MuteChangeEventArgs>| {
+                if let Some(a) = args {
+                    let api_ref = &mut state_copy.lock().unwrap().api;
+                    let should_mute = a.Muted().unwrap();
+                    api_ref.log(format!("Mute request: should mute {}", should_mute).as_str()).unwrap();
+                    api_ref.request_local_user_mute(should_mute).unwrap();
+                }
+                Ok(())
+            })).unwrap();
+        }
+
+        Ok(MutePlugin {
+            state: state,
             call: None,
         })
     }
