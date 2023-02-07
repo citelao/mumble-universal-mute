@@ -36,7 +36,7 @@ impl MumblePlugin for MutePlugin {
         let call = self.coordinator.RequestNewOutgoingCall(
             h!("context_link_todo"),
             h!("TODO Channel"),
-            h!("Mumble"), 
+            h!("Mumble"),
             VoipPhoneCallMedia::Audio)
             .expect("Call should be createable");
 
