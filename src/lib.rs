@@ -185,8 +185,9 @@ impl MumblePluginDescriptor for MutePlugin {
             coordinator.MuteStateChanged(&TypedEventHandler::new(move |_, args: &Option<MuteChangeEventArgs>| {
                 if let Some(a) = args {
                     let api_ref = &mut state_copy.lock().unwrap().api;
-                    api_ref.log("Mute request").unwrap();
-                    // api_ref.request_local_user_mute(a.Muted().unwrap()).unwrap();
+                    let should_mute = !a.Muted().unwrap();
+                    api_ref.log(format!("Mute request - should mute? {}", should_mute).as_str()).unwrap();
+                    // api_ref.request_local_user_mute(should_mute).unwrap();
                 }
                 Ok(())
             })).unwrap();
