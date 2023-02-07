@@ -28,6 +28,13 @@ cargo build
 cp .\target\debug\mumble_mute_plugin.dll $env:APPDATA\Mumble\Plugins
 ```
 
+### Packaging
+
+```powershell
+# ...After you build...
+.\packaging\create_package.ps1 # => creates output/universal_mute.mumble_plugin
+```
+
 ### Tips
 
 * Make sure you have 64-bit Mumble!
