@@ -40,3 +40,9 @@ cp .\target\debug\mumble_mute_plugin.dll $env:APPDATA\Mumble\Plugins
 * Make sure you have 64-bit Mumble!
 * Enable Developer console (or use SysInternals DebugView) for debugging plugin
   load issues.
+
+### TODO
+
+* [ ] Handle *app* mute (Ctrl-Shift-M should change the Univeral Mute indicator)
+* [ ] Handle 32-bit
+* [ ] Clean up `.unwrap()`s
