@@ -110,7 +110,7 @@ impl MumblePluginDescriptor for MutePlugin {
         {
             // Useful for debugging.
             let state_ref = &mut state.lock().unwrap();
-            debug_log(&mut state_ref.api, "Hello there!");
+            debug_log(&mut state_ref.api, "Hello there!").unwrap();
         }
 
         {
